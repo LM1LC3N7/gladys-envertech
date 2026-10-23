@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-23
+
 ### Added
 
 - Local reading of Envertech EVT800 micro-inverters through their TCP link
@@ -46,4 +48,5 @@ the notes of the version's GitHub Release.
   connection; the inverter shown offline when the link is lost by day.
 - A device gaining an input never counts the old counter of that input.
 
-[Unreleased]: https://github.com/LM1LC3N7/gladys-envertech/commits/main
+[Unreleased]: https://github.com/LM1LC3N7/gladys-envertech/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/LM1LC3N7/gladys-envertech/releases/tag/v0.1.1
