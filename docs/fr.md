@@ -1,67 +1,99 @@
-# Template de démonstration
+# Envertech pour Gladys Assistant
 
-Ceci est la documentation utilisateur de l'intégration. Gladys ré-héberge ce
-fichier et affiche un lien **Documentation** permanent vers lui dans l'écran
-de configuration (dans la langue de l'utilisateur, avec l'anglais en repli) —
-c'est au moment de configurer que l'utilisateur en a le plus besoin. Gardez
-les courtes indications d'accueil dans les blocs `section` du `config_schema`
-du manifest ; mettez ici le pas-à-pas détaillé (captures d'écran, dépannage…).
+Connecteur non officiel, sans lien avec Envertech. Il lit votre
+micro-onduleur Envertech EVT800 sur votre réseau local, par son lien TCP
+local, sans cloud et sans compte.
+
+**Jamais testé avec un vrai appareil** : il a été construit à partir de la
+bibliothèque pyenvertechevt800 (celle qu’utilise Home Assistant) et des trames
+de ses tests. Le protocole n’est pas documenté par Envertech. Merci de
+signaler ce que vous voyez (voir « Retours » plus bas).
 
 ## Ce que vous obtenez
 
-Six appareils de démonstration apparaissent après l'installation : une
-station météo (vraies données Open-Meteo), un interrupteur, une lampe
-variable, une prise connectée avec mesure de puissance, un détecteur de
-mouvement et une caméra.
+Un appareil Gladys par micro-onduleur, nommé d’après son numéro de série :
 
-## Configuration
+| Fonction                          | Ce que c’est                                                                                 |
+| --------------------------------- | -------------------------------------------------------------------------------------------- |
+| Production solaire (W)            | la puissance de toutes ses entrées ensemble ; 0 la nuit                                      |
+| Index de production solaire (kWh) | un index cumulatif pour le suivi énergétique de Gladys (production par demi-heure, recettes) |
+| Onduleur en ligne                 | 1 tant que l’onduleur envoie ses trames, 0 en veille (la nuit)                               |
+| Tension AC (V)                    | la tension du réseau vue par l’onduleur                                                      |
+| Fréquence du réseau (Hz)          | un simple nombre (Gladys n’a pas d’unité Hz)                                                 |
+| Puissance de l’entrée n (W)       | la puissance de chaque entrée (un panneau chacune)                                           |
+| Tension DC de l’entrée n (V)      | la tension du panneau                                                                        |
+| Courant DC de l’entrée n (A)      | le courant du panneau (puissance divisée par la tension)                                     |
+| Température de l’entrée n (°C)    | la température que l’onduleur donne pour cette entrée                                        |
 
-1. Ouvrez l'onglet **Configuration** de l'intégration.
-2. Renseignez la **latitude** et la **longitude** que la station météo de
-   démonstration doit observer (Paris par défaut), et choisissez votre unité
-   de température. L'**intervalle de rafraîchissement** règle la fréquence
-   de lecture de la station météo et de la puissance de la prise : toutes
-   les 5 minutes par défaut, toutes les minutes au plus.
-3. Enregistrez : les appareils apparaissent dans l'onglet **Découverte**,
-   prêts à être ajoutés.
+Lecture seule : l’intégration ne fait qu’acquitter les trames de l’onduleur
+(comme la bibliothèque, l’onduleur l’attend), elle n’envoie jamais de
+commande. L’onduleur ne donne pas de compteur du jour ; son compteur total par
+entrée n’est pas publié seul (voir « L’index d’énergie »).
 
-Le réglage **Préférer la connexion locale** pilote la prise de
-démonstration : elle affiche en badge le canal réellement utilisé (local ou
-cloud), avec un point orange quand elle fonctionne en mode dégradé (local
-refusé, bascule cloud).
+## Mise en place
 
-## Actions
+1. L’EVT800 doit être dans son mode « serveur TCP » (celui qu’utilise
+   l’intégration Home Assistant), à l’écoute sur le port 14889. Trouvez son
+   adresse IP dans votre box et donnez-lui une adresse fixe si possible.
+2. Dans Gladys, ouvrez l’intégration, saisissez l’adresse (de jour : la nuit
+   l’onduleur s’éteint avec ses panneaux), et enregistrez. Ajoutez `:port`
+   seulement s’il n’est pas 14889.
+3. Ouvrez l’onglet « Découverte » et créez l’appareil. Ses valeurs arrivent
+   avec la trame suivante (en moins d’une minute de jour).
+4. Facultatif : saisissez la puissance crête des panneaux de cet onduleur
+   (kWc). Elle borne ce que l’index d’énergie peut prendre entre deux trames
+   (2 kW si vide). Ne saisissez jamais moins que la vraie puissance crête :
+   dans le doute, laissez vide.
 
-- **Tester le fournisseur météo** — effectue une requête en direct vers
-  Open-Meteo et affiche la température et l'humidité actuelles sous le
-  bouton.
-- **Identifier un appareil** — choisissez un de vos appareils dans la liste
-  et il se signale (la lampe de démonstration « clignote » dans les logs).
+L’intégration garde une connexion ouverte et publie la dernière trame au plus
+une fois par minute. Elle n’essaie jamais de se connecter plus d’une fois par
+minute, quoi qui le demande (un redémarrage, un enregistrement, le bouton de
+test). Le bouton « Tester la connexion » donne la dernière trame, ou fait
+l’essai de connexion quand il est dû et attend la première trame.
 
-## Scènes
+Si un autre programme (Home Assistant par exemple) est connecté à l’onduleur
+en même temps, l’onduleur peut refuser la seconde connexion : utilisez l’un
+des deux.
 
-L'intégration ajoute ses propres cartes à l'éditeur de scènes (Gladys 5.1
-ou plus récent), dans la catégorie **Intégrations** :
+## La nuit
 
-- **Mouvement détecté** (déclencheur) — lance la scène quand un détecteur
-  de démonstration voit bouger quelque chose. Choisissez éventuellement le
-  détecteur et ce qui a bougé (personne, animal) ; laissés vides, toute
-  détection correspond. Les actions suivantes peuvent lire ce qui a bougé
-  avec `{{triggerEvent.data.target}}`.
-- **Identifier un appareil** (action) — fait se signaler l'appareil choisi.
-  Elle indique si l'appareil a pu se signaler, pour que les actions
-  suivantes puissent en dépendre.
+Un EVT800 est alimenté par ses panneaux : au coucher du soleil il s’arrête et
+se tait. Ce n’est pas une erreur : après trois essais ratés avec une puissance
+sous 20 W (ou une heure de silence quelle que soit la puissance), l’onduleur
+est « en veille », ses puissances passent à 0, l’état reste vert et le dit, et
+il est réessayé toutes les 5 minutes jusqu’à son réveil. L’état passe au
+rouge si l’onduleur disparaît en produisant 20 W ou plus (nouveaux essais
+après 1 minute, doublés jusqu’à 15 minutes), si l’adresse ne donne pas de
+trames d’EVT800, ou s’il n’y a aucune trame depuis plus d’un jour.
 
-## Tableau de bord
+## L’index d’énergie
 
-Ajoutez le widget **État de la démo** à un tableau de bord : il affiche en
-direct la température de la station météo et la puissance de la prise du
-bureau, la connexion utilisée par la prise (en orange si dégradée) et la
-position observée. Son bouton **Identifier la lampe** fait se signaler la
-lampe de démonstration.
+Chaque entrée de l’onduleur a son propre compteur total. L’index de
+production est leur somme, publiée seulement quand chaque entrée donne son
+compteur (une somme partielle ressemblerait à une baisse, puis à un saut). Il
+passe par une garde : il n’est jamais 0 ; un saut plus grand que ce que
+permet la puissance crête depuis la dernière valeur, ou une baisse, est
+retenu, affiché dans l’état de l’intégration, et pris seulement quand vous
+cliquez sur « Accepter l’index retenu » dans la configuration (un saut est
+alors compté d’un coup ; rien n’est compté pour une baisse, l’index repart de
+là). Enregistrer la configuration n’accepte jamais rien.
 
-## Dépannage
+## Limites
 
-L'intégration journalise tout ce qu'elle fait : consultez les logs de
-l'intégration depuis l'interface Gladys (ou `docker logs` sur l'hôte) avec
-`LOG_LEVEL=debug` pour le détail complet.
+- Un micro-onduleur par intégration ; deux entrées au plus (comme la
+  bibliothèque).
+- Le protocole n’est pas documenté : le sens de chaque valeur vient de la
+  bibliothèque, vérifié seulement sur les trames de ses tests.
+- L’intégration demande Gladys 5.2.0 ou plus récent.
+
+## Vie privée
+
+Rien ne sort de votre réseau : l’intégration ne parle qu’à l’adresse saisie.
+Seuls le numéro de série, le nombre d’entrées, la garde de l’index et les
+heures du dernier essai et de la dernière trame sont gardés dans `/data`.
+
+## Retours
+
+Tickets et pull requests : <https://github.com/LM1LC3N7/gladys-envertech>. Si
+vous avez un EVT800, les journaux de l’intégration (de jour et de nuit, numéros
+de série masqués) aident beaucoup.

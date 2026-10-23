@@ -1,177 +1,83 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "Envertech",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Unofficial: Envertech EVT800 micro-inverters on your network: power, inputs, energy index.",
+    "fr": "Non officiel : micro-onduleurs Envertech EVT800 en local : puissance, entrées, index d'énergie."
   },
-  "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
-  "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "version": "0.1.0",
+  "docker_image": "ghcr.io/lm1lc3n7/gladys-envertech:0.1.0",
+  "gladys_version": ">=5.2.0",
+  "cover_image": "https://raw.githubusercontent.com/LM1LC3N7/gladys-envertech/main/cover.png",
+  "categories": ["energy"],
+  "transports": ["local"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": { "en": "Envertech micro-inverter", "fr": "Micro-onduleur Envertech" },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "Unofficial connector, not affiliated with Envertech. It reads an Envertech EVT800 micro-inverter on your network, without any cloud, through its local TCP link (\"TCP server\" mode, port 14889): solar power, power, voltage, current and temperature of each input, AC voltage, grid frequency, and a solar production index for the Gladys energy monitoring (the lifetime counters of the inputs). At night the inverter sleeps: the power goes to 0. Read-only: it only acknowledges the frames of the inverter, never a command. The protocol is not documented by Envertech. Never tested with a real Envertech inverter.",
+        "fr": "Connecteur non officiel, sans lien avec Envertech. Il lit un micro-onduleur Envertech EVT800 sur votre réseau, sans cloud, par son lien TCP local (mode « serveur TCP », port 14889) : puissance solaire, puissance, tension, courant et température de chaque entrée, tension AC, fréquence du réseau, et un index de production solaire pour le suivi énergétique de Gladys (les compteurs totaux des entrées). La nuit l'onduleur dort : la puissance passe à 0. Lecture seule : il ne fait qu'acquitter les trames de l'onduleur, jamais une commande. Le protocole n'est pas documenté par Envertech. Jamais testé avec un vrai onduleur Envertech."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/LM1LC3N7/gladys-envertech/blob/main/docs/fr.md",
+          "label": { "en": "Guide (French)", "fr": "Guide (français)" }
+        },
+        {
+          "url": "https://github.com/LM1LC3N7/gladys-envertech/blob/main/docs/en.md",
+          "label": { "en": "Guide (English)", "fr": "Guide (anglais)" }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
-      },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
+      "key": "address",
+      "type": "string",
       "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
-    },
-    {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
+      "label": { "en": "Inverter address", "fr": "Adresse de l'onduleur" },
       "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+        "en": "The IP address of the EVT800 on your network (shown by your router), with a port only if it is not 14889. Enter it by day: at night the inverter sleeps and does not answer. Preferably give it a fixed address in your router.",
+        "fr": "L'adresse IP de l'EVT800 sur votre réseau (visible dans votre box), avec un port seulement s'il n'est pas 14889. Saisissez-la de jour : la nuit l'onduleur dort et ne répond pas. Donnez-lui de préférence une adresse fixe dans votre box."
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
+      "placeholder": { "en": "e.g. 192.168.1.80", "fr": "ex. 192.168.1.80" }
     },
     {
-      "key": "unit",
-      "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
-      "required": false,
-      "default": "celsius",
-      "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
-      ]
-    },
-    {
-      "key": "poll_frequency",
+      "key": "peak_power_kw",
       "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
-      "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
-      },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "min": 0.1,
+      "max": 10,
+      "label": {
+        "en": "Peak power of the panels (kWp, optional)",
+        "fr": "Puissance crête des panneaux (kWc, facultatif)"
+      },
+      "description": {
+        "en": "The peak power of the panels on this inverter. It bounds what the energy index may take between two frames (an odd frame is held back instead). Empty: 2 kW. Never enter less than the real peak power: in doubt, leave it empty.",
+        "fr": "La puissance crête des panneaux de cet onduleur. Elle borne ce que l'index d'énergie peut prendre entre deux trames (une trame aberrante est retenue). Vide : 2 kW. Ne saisissez jamais moins que la vraie puissance crête : dans le doute, laissez vide."
+      },
+      "placeholder": { "en": "e.g. 0.8", "fr": "ex. 0,8" }
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
+      "key": "test_connection",
+      "timeout_seconds": 30,
+      "label": { "en": "Test the connection", "fr": "Tester la connexion" },
+      "description": {
+        "en": "Connects to the inverter if an attempt is due and waits for its first frame, otherwise tells the last frame (never more than one connection attempt a minute).",
+        "fr": "Se connecte à l'onduleur si un essai est dû et attend sa première trame, sinon donne la dernière trame (jamais plus d'un essai de connexion par minute)."
+      }
     },
     {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
-    }
-  ],
-  "scene_triggers": [
-    {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "accept_held_index",
+      "timeout_seconds": 30,
+      "label": { "en": "Accept the held index", "fr": "Accepter l'index retenu" },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
-      },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
-        },
-        {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
-          "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
-          ]
-        }
-      ],
-      "variables": [
-        {
-          "key": "target",
-          "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
-        }
-      ]
-    }
-  ],
-  "scene_actions": [
-    {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
-      },
-      "timeout_seconds": 15,
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ],
-      "outputs": [
-        {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
-        }
-      ]
-    }
-  ],
-  "widgets": [
-    {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
-      },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+        "en": "Only when the status shows a jump or a drop of the energy index held back and it is real: takes exactly the value shown (a jump is counted at once, nothing is counted for a drop). Saving the configuration never accepts anything.",
+        "fr": "Seulement quand l'état affiche un saut ou une baisse de l'index d'énergie retenu et qu'il est réel : prend exactement la valeur affichée (un saut est compté d'un coup, rien n'est compté pour une baisse). Enregistrer la configuration n'accepte jamais rien."
+      }
     }
   ]
 }
