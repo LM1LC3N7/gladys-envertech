@@ -10,6 +10,13 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+### Fixed
+
+- A counter reset is no longer recognized after a tiny evening (its sum within
+  the margin since the wake-up): a glitch at the wake-up then the real
+  counters could count that evening twice (about 0.1 kWh). Such a drop is
+  held instead.
+
 ## [0.1.1] - 2026-10-23
 
 ### Added

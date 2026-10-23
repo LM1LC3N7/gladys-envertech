@@ -63,7 +63,7 @@ test('I-a: a dim day then a sunny morning: the reset is never undone by the clim
 
 test('I-a: BuiltIndex undoes only a return at once', () => {
   const b = new BuiltIndex({ base: 0, counters: [0.15, 0.15], reset: null });
-  let r = b.read([0.001, 0.001], 0, { afterNight: true, maxKwh: 0.3 });
+  let r = b.read([0.001, 0.001], 0, { afterNight: true, maxKwh: 0.25 });
   assert.equal(r.kind, 'reset');
   b.commit(r.next);
   // A slow climb past the evening values: no undo.

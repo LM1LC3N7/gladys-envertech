@@ -131,6 +131,13 @@ counters`, `base` 0 while they only rise. Every counter lower, right
   - M-b: by day, a lost link keeps the powers at their last value (never 0
     while unknown), only `online` goes to 0: documented, with the advice to
     check "Inverter online" in a scene; asleep after an hour.
+- **Approval 2, A6** (0.1.2): a reset is refused when the sum of the evening
+  is itself within the margin since the wake-up. A tiny evening and a glitch
+  at the wake-up could not be told apart, and the return of the real
+  counters, under the margin too, would never undo it: the evening was
+  counted twice (about 0.1 kWh, once). Such a drop is held instead (the
+  button takes it); a real reset after a tiny day is rare and costs nothing
+  but a click.
 - **No credentials, no cloud, no 429/5xx**: the link has neither; nothing
   secret in the form, the logs, `/data` or the statuses.
 - **States**: `publishChangedStates` with a 10-minute heartbeat: at most 16

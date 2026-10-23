@@ -12,7 +12,8 @@
 // - the first frames after a confirmed night (the inverter asleep after a low
 //   power, `afterNight`);
 // - the new sum within `maxKwh` (the margin of the guard since the wake-up:
-//   what may have been produced since the counters started again).
+//   what may have been produced since the counters started again);
+// - the sum of the evening beyond that margin (approval 2, A6).
 // A reset is undone when, within UNDO_WITHIN, every counter is back at or
 // above the values of the evening AT ONCE, i.e. with a rise from the last
 // counters taken beyond the margin (a glitch, not a reset; a normal climb of
@@ -90,7 +91,11 @@ export class BuiltIndex {
       kind = 'inputs';
     } else if (previous) {
       const allLower = counters.every((c, i) => c < previous[i] - EPSILON);
-      if (allLower && afterNight && sum(counters) <= maxKwh) {
+      // The evening sum must itself be beyond the margin (approval 2, A6): a
+      // tiny evening could not be told from a glitch at the wake-up, and an
+      // undo would then never come (the return stays under the margin), so
+      // the evening would be counted twice. Such a drop is held instead.
+      if (allLower && afterNight && sum(counters) <= maxKwh && sum(previous) > maxKwh) {
         base += sum(previous);
         reset = { prev: previous, at };
         kind = 'reset';
