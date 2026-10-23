@@ -39,7 +39,9 @@ the notes of the version's GitHub Release.
 - The night after a low power dates the reference of the index again at every
   attempt: a wrong first frame in the morning is held.
 - Counters reset when the inverter powers up in the morning (if it does): the
-  index goes on from its value, undone if the old counters come back.
+  index goes on from its value, across restarts of the container by day and
+  by night; undone only if the old counters come back at once, never by the
+  normal climb of the day.
 - Only data frames of the inverter keep the link alive; one serial per
   connection; the inverter shown offline when the link is lost by day.
 - A device gaining an input never counts the old counter of that input.

@@ -116,6 +116,21 @@ counters`, `base` 0 while they only rise. Every counter lower, right
   - M4: the docs no longer promise a frame within a minute.
   - M5: a second client refused looks like the night: documented, and the
     "asleep" status mentions it.
+- **Approval 1** (fixed):
+  - B1: a save never writes `built: null` in place of the state kept in
+    `/data` (a built index not loaded keeps it), and the built index is
+    loaded with its guard. Tested: a restart by day after a reset, a restart
+    at night then the reset of the morning.
+  - I-a: a reset is undone only when the evening values come back AT ONCE
+    (a rise from the last counters taken beyond the margin), never by the
+    normal climb of a day (a dim day then a sunny morning ends at the real
+    production, no drop).
+  - M-a: after a restart at night (`night` in `/data`), the guard keeps the
+    date of `/data` (the last attempt of the night), not the evening date
+    Gladys holds for the same value.
+  - M-b: by day, a lost link keeps the powers at their last value (never 0
+    while unknown), only `online` goes to 0: documented, with the advice to
+    check "Inverter online" in a scene; asleep after an hour.
 - **No credentials, no cloud, no 429/5xx**: the link has neither; nothing
   secret in the form, the logs, `/data` or the statuses.
 - **States**: `publishChangedStates` with a 10-minute heartbeat: at most 16

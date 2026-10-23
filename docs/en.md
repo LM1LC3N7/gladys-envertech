@@ -74,6 +74,12 @@ doubled up to 15 minutes),
 if the address does not give EVT800 frames, or if there is no frame for more
 than a day.
 
+While the status is red after a link lost in production, the powers keep
+their last value in Gladys (never 0 by day: the integration does not know
+them); only "Inverter online" goes to 0. A scene that relies on the power
+should also check "Inverter online". After an hour, the inverter is asleep
+and the powers go to 0.
+
 ## The energy index
 
 Each input of the inverter has its own lifetime counter. The production index

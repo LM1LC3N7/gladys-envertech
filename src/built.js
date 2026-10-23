@@ -14,7 +14,9 @@
 // - the new sum within `maxKwh` (the margin of the guard since the wake-up:
 //   what may have been produced since the counters started again).
 // A reset is undone when, within UNDO_WITHIN, every counter is back at or
-// above the values of the evening (a glitch, not a reset): `base` goes back,
+// above the values of the evening AT ONCE, i.e. with a rise from the last
+// counters taken beyond the margin (a glitch, not a reset; a normal climb of
+// the day never undoes it, approval 1 I-a): `base` goes back,
 // nothing is ever counted twice (what the glitch added is not counted again
 // while the counters climb back above it).
 //
@@ -92,7 +94,13 @@ export class BuiltIndex {
         base += sum(previous);
         reset = { prev: previous, at };
         kind = 'reset';
-      } else if (reset && counters.every((c, i) => c >= reset.prev[i] - EPSILON)) {
+      } else if (
+        reset &&
+        // Back to the evening AT ONCE (approval 1, I-a): a rise from the last
+        // counters taken beyond the margin, never a normal climb of the day.
+        sum(counters) - sum(previous) > maxKwh &&
+        counters.every((c, i) => c >= reset.prev[i] - EPSILON)
+      ) {
         base -= sum(reset.prev);
         reset = null;
         kind = 'undo';

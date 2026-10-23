@@ -680,11 +680,16 @@ export class EnvertechApp {
   }
 
   async doSave(drop) {
+    const kept = keptIndexes(this.store.load().indexes);
     const indexes = {};
     for (const [id, guard] of this.guards) {
-      indexes[id] = { guard: guard.state(), built: this.builts.get(id)?.state() ?? null };
+      // Never null in place of a state kept in /data (approval 1, B1): a
+      // built index not loaded yet keeps what /data holds.
+      indexes[id] = {
+        guard: guard.state(),
+        built: this.builts.get(id)?.state() ?? kept[id]?.built ?? null,
+      };
     }
-    const kept = keptIndexes(this.store.load().indexes);
     for (const id of Object.keys(indexes)) delete kept[id];
     if (drop) delete kept[drop];
     const merged = Object.entries({ ...kept, ...indexes }).slice(-MAX_KEPT_INDEXES);
@@ -768,10 +773,24 @@ export class EnvertechApp {
     const limits = { maxKw: kw, slackKwh: INDEX_SLACK_KWH };
     if (!this.guards.has(id)) {
       const saved = keptIndexes(this.store.load().indexes)[id];
-      this.guards.set(
-        id,
-        new IndexGuard(lastValueOf(created, id), saved?.guard, this.now(), limits),
-      );
+      const guard = new IndexGuard(lastValueOf(created, id), saved?.guard, this.now(), limits);
+      const kept = saved?.guard?.last;
+      if (
+        this.asleep &&
+        this.asleepLow &&
+        guard.last &&
+        kept &&
+        kept.value === guard.last.value &&
+        finite(kept.at)
+      ) {
+        // The night (approval 1, M-a): the date of /data is the last attempt
+        // of the night, the date Gladys holds the evening's. Kept, so the
+        // margin of the morning never covers the night after a restart.
+        guard.last = { value: guard.last.value, at: Math.min(kept.at, this.now()) };
+      }
+      this.guards.set(id, guard);
+      // Loaded with its guard (B1): the built index is never left behind.
+      this.builtOf(id);
     } else if (this.guards.get(id).maxKw !== kw) {
       this.guards.set(
         id,

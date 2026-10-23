@@ -73,6 +73,12 @@ rouge (l’onduleur affiché hors ligne) si l’onduleur disparaît en produisan
 après 1 minute, doublés jusqu’à 15 minutes), si l’adresse ne donne pas de
 trames d’EVT800, ou s’il n’y a aucune trame depuis plus d’un jour.
 
+Tant que l’état est rouge après un lien perdu en production, les puissances
+gardent leur dernière valeur dans Gladys (jamais 0 de jour : l’intégration ne
+les connaît pas) ; seul « Onduleur en ligne » passe à 0. Une scène qui
+s’appuie sur la puissance doit aussi vérifier « Onduleur en ligne ». Au bout
+d’une heure, l’onduleur est en veille et les puissances passent à 0.
+
 ## L’index d’énergie
 
 Chaque entrée de l’onduleur a son propre compteur total. L’index de
