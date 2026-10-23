@@ -5,7 +5,8 @@
 // library does (see src/evt800/protocol.js). Nothing else is ever sent.
 //
 // Bounded: one connection per link, 10 s to connect, the link closed after
-// 90 s without a frame (the library waits 60 s), one read buffer of 1 KiB
+// 90 s without a data frame of its inverter (`keepsAlive`; the library waits
+// 60 s for any frame), one read buffer of 1 KiB
 // allocated once, every frame decoded. Closed only by a real flood: more than
 // 64 KiB a minute (a few hundred bytes are expected), an acknowledgement the
 // inverter does not read (4 KiB pending), or 2 KiB without a single frame
@@ -57,6 +58,7 @@ export class Evt800Link {
     onFrame = () => {},
     onOpen = () => {},
     onClose = () => {},
+    keepsAlive = (parsed) => parsed.kind === 'data' && Boolean(parsed.serial),
     connect = (options) => createConnection(options),
     timers = { setTimeout, clearTimeout },
     monotonic = () => performance.now(),
@@ -65,6 +67,8 @@ export class Evt800Link {
     this.onFrame = onFrame;
     this.onOpen = onOpen;
     this.onClose = onClose;
+    /** Whether a frame proves the inverter alive (only those restart the silence timer). */
+    this.keepsAlive = keepsAlive;
     this.connect = connect;
     this.timers = timers;
     this.monotonic = monotonic;
@@ -74,6 +78,8 @@ export class Evt800Link {
     this.ended = false;
     this.opened = false;
     this.frames = 0;
+    /** Frames that kept the link alive (data frames of the expected inverter). */
+    this.alive = 0;
     this.received = 0;
     /** Bytes received in the current minute (flood check). */
     this.windowStart = 0;
@@ -103,7 +109,7 @@ export class Evt800Link {
     });
     socket.on('close', () => {
       this.end(
-        this.frames > 0 ? undefined : new Evt800Error(this.opened ? 'closed' : 'unreachable'),
+        this.alive > 0 ? undefined : new Evt800Error(this.opened ? 'closed' : 'unreachable'),
       );
     });
   }
@@ -136,7 +142,6 @@ export class Evt800Link {
     for (const frame of this.reader.push(chunk)) {
       if (this.ended) return;
       this.frames += 1;
-      this.arm(SILENCE_TIMEOUT, 'silent');
       const ack = ackFor(frame);
       if (ack) {
         if (this.socket.writableLength > MAX_PENDING_WRITE) {
@@ -145,7 +150,14 @@ export class Evt800Link {
         }
         this.socket.write(ack);
       }
-      this.onFrame(parseFrame(frame));
+      const parsed = parseFrame(frame);
+      // Only a data frame of the expected inverter restarts the silence timer:
+      // poll frames or frames of another serial alone end the link after 90 s.
+      if (this.keepsAlive(parsed)) {
+        this.alive += 1;
+        this.arm(SILENCE_TIMEOUT, 'silent');
+      }
+      this.onFrame(parsed);
     }
     if (this.frames === 0 && this.received > UNKNOWN_AFTER_BYTES) {
       this.end(new Evt800Error('unknown_answer'));

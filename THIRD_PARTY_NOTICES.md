@@ -55,7 +55,8 @@ SOFTWARE.
 The structure of the integration (`src/app.js`: the pace, the night, the
 session per address, the buttons), the plausibility guard of the energy index
 (`src/guard.js`, from gladys-p1-monitor, its margin a parameter, taken from
-gladys-omnik as it is), the `/data` store (`src/store.js`), the address parser
+gladys-omnik as it is), the chaining of a counter reset after the night
+(`src/built.js`, after the mechanism of gladys-imeon and gladys-zeversolar), the `/data` store (`src/store.js`), the address parser
 (`src/config.js`) and the features kept on a republished device
 (`keepCreatedFeatures` in `src/devices.js`) come from the sibling
 integrations [gladys-omnik](https://github.com/LM1LC3N7/gladys-omnik),

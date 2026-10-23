@@ -65,6 +65,7 @@ import {
   totalPower,
   within,
 } from './devices.js';
+import { BuiltIndex } from './built.js';
 import { Evt800Link } from './evt800/client.js';
 import { MAX_CHANNELS } from './evt800/protocol.js';
 import { IndexGuard } from './guard.js';
@@ -89,31 +90,33 @@ export function maxKwOf(peakKw) {
   return Math.min(MAX_KW_MAX, Math.max(MAX_KW_MIN, Math.ceil(peakKw * 1.25 * 10) / 10));
 }
 
-/** The number of inputs a data frame shows (the last one present), 0 when none. */
+/**
+ * The number of inputs of a data frame: its number of blocks (review 1, M1: a
+ * block with an id of 0 counts, so that a frame of 86 bytes always gives 2 and
+ * the device never gains an input with a whole lifetime counter behind it).
+ */
 export function inputsOf(reading) {
-  let count = 0;
-  for (const [k, channel] of reading.channels.entries()) {
-    if (channel) count = k + 1;
-  }
-  return count;
+  return reading.channels.length;
 }
 
 /**
- * The production index of a frame for a device with `channels` inputs: the
- * sum of their lifetime counters, only when EVERY one of them gives one (a
- * partial sum would be a drop, then a jump); undefined otherwise or at 0.
+ * The lifetime counters of a frame for a device with `channels` inputs, only
+ * when EVERY one of them gives one (a partial sum would be a drop, then a
+ * jump); undefined otherwise.
  */
-export function indexOf(reading, channels) {
+export function countersOf(reading, channels) {
   if (!(channels > 0)) return undefined;
-  let sum = 0;
+  const counters = [];
   for (let n = 1; n <= channels; n += 1) {
     const energy = within(reading.channels[n - 1]?.energy, ENERGY_MAX);
     if (energy === undefined) return undefined;
-    sum += energy;
+    counters.push(energy);
   }
-  const total = round(sum, 3);
-  return total > 0 ? total : undefined;
+  return counters;
 }
+
+/** After the wake-up from a confirmed night, a reset of the counters is recognized this long. */
+const RESET_AFTER_WAKE = 60 * 60_000;
 
 /** The index Gladys already holds for a feature of a created device, when it says so. */
 function lastValueOf(device, featureId) {
@@ -200,9 +203,18 @@ export class EnvertechApp {
     this.startedAt = at;
     /** Monotonic time of the last publication of values. */
     this.lastPublishAt = undefined;
-    /** By index feature external id: IndexGuard. */
+    /** By index feature external id: IndexGuard, and BuiltIndex (src/built.js). */
     this.guards = new Map();
+    this.builts = new Map();
+    /** The saves to /data, one after the other (review 1, M2). */
+    this.saveQueue = Promise.resolve();
     this.resetReads();
+    if (kept.night === true) {
+      // Asleep after a low power when the container stopped: still the night
+      // (the reset of the counters at sunrise is recognized after a restart).
+      this.asleep = true;
+      this.asleepLow = true;
+    }
   }
 
   /** What belongs to one address: forgotten when it changes. */
@@ -212,6 +224,10 @@ export class EnvertechApp {
     /** The last data frame: `{ at (monotonic), reading, published }`. */
     this.latest = undefined;
     this.asleep = false;
+    /** Asleep after a low power (a real night, not an outage while producing). */
+    this.asleepLow = false;
+    /** Wall time of the first frame after such a night. */
+    this.wokeAt = undefined;
     this.misses = 0;
     this.firstMissAt = undefined;
     /** The total power of the last frame (W): an inverter that vanishes producing more is not asleep. */
@@ -358,10 +374,23 @@ export class EnvertechApp {
     if (session !== this.session || !this.running || session.link) {
       return;
     }
+    // One serial per link (review 1, I3): the first data frame with a readable
+    // serial fixes it, synchronously, before any other frame of the same
+    // chunk. Another serial on the same TCP link is not a DHCP swap: ignored,
+    // and it never keeps the link alive (I2). A new link may give another one.
+    const ctx = { serial: undefined, warned: false };
+    const keepsAlive = (parsed) => {
+      if (parsed.kind !== 'data' || !parsed.serial || parsed.channels.length === 0) {
+        return false;
+      }
+      ctx.serial ??= parsed.serial;
+      return parsed.serial === ctx.serial;
+    };
     const link = this.linkFactory({
       address: this.config.address,
+      keepsAlive,
       onOpen: () => this.guarded(() => this.linkOpened(session, link)),
-      onFrame: (parsed) => this.guarded(() => this.frameReceived(session, link, parsed)),
+      onFrame: (parsed) => this.guarded(() => this.frameReceived(session, link, ctx, parsed)),
       onClose: (err) => this.guarded(() => this.linkClosed(session, link, err)),
     });
     session.link = link;
@@ -396,7 +425,7 @@ export class EnvertechApp {
     await this.updateStatus();
   }
 
-  async frameReceived(session, link, parsed) {
+  async frameReceived(session, link, ctx, parsed) {
     if (session !== this.session || link !== session.link) {
       return;
     }
@@ -408,8 +437,18 @@ export class EnvertechApp {
     const inputs = inputsOf(parsed);
     if (!parsed.serial || inputs === 0) {
       // A serial unreadable once is never "another inverter": nothing written.
+      if (!this.noSerial) {
+        this.logger.warn('Envertech: a frame without serial number or input, ignored');
+      }
       this.noSerial = !parsed.serial;
-      this.logger.warn('Envertech: a frame without serial number or input, ignored');
+      return;
+    }
+    if (parsed.serial !== ctx.serial) {
+      // Another serial on the same link (I3): ignored, logged once per link.
+      if (!ctx.warned) {
+        ctx.warned = true;
+        this.logger.warn('Envertech: frames of two serial numbers on one link, the second ignored');
+      }
       return;
     }
     this.noSerial = false;
@@ -417,10 +456,18 @@ export class EnvertechApp {
     const serial = parsed.serial;
     const previous = this.info?.serial;
     if (previous !== undefined && previous !== serial) {
+      // At most once per link: the serial of a link never changes (M3).
       this.otherInverter = serial;
       this.logger.warn('Envertech: another inverter answers at this address');
     }
-    const firmware = parsed.channels.find((c) => c)?.firmware;
+    if (this.asleepLow) {
+      // The first frame after a confirmed night: a reset of the counters is
+      // recognized for a while (src/built.js).
+      this.wokeAt = this.now();
+    }
+    const nightEnds = this.asleepLow;
+    this.asleepLow = false;
+    const firmware = parsed.channels.find((c) => !c.empty)?.firmware;
     const known = previous === serial ? (this.info.channels ?? 0) : 0;
     const created = channelsOfDevice(this.gladys, serial, this.createdDevice(serial));
     const info = { serial, firmware, channels: Math.max(known, created, inputs) };
@@ -438,7 +485,7 @@ export class EnvertechApp {
     this.outcome = { at: mono, kind: 'reading', reading: parsed };
     this.latest = { at: mono, reading: parsed, published: false };
     this.resolveWaiters();
-    if (infoChanged) {
+    if (infoChanged || nightEnds) {
       // The serial and inputs in /data: a restart by night still offers the device.
       await this.saveState();
       if (gone()) return;
@@ -483,13 +530,27 @@ export class EnvertechApp {
       this.misses += 1;
       this.firstMissAt ??= mono;
       if (this.asleep) {
-        // Still the night: no change but the status.
+        // Still the night: the reference of the index dated again (nothing is
+        // produced meanwhile), then the status.
+        if (this.asleepLow) {
+          await this.redateNight();
+          if (gone()) return;
+        }
         await this.updateStatus();
         return;
       }
       const low = this.lastPower === undefined || this.lastPower < AWAKE_POWER;
       if ((low && this.misses >= MISSES_BEFORE_ASLEEP) || mono - this.firstMissAt >= ASLEEP_AFTER) {
         this.asleep = true;
+        // A night after a low power (review 1, I1, the lot 13 lesson): the
+        // reference of the guard is dated again at every attempt of the
+        // night, so that the margin of the morning never covers the night.
+        // Not after an hour of silence while producing (an outage).
+        this.asleepLow = low;
+        if (low) {
+          await this.redateNight();
+          if (gone()) return;
+        }
         this.failures = 0;
         this.nextTryAt = undefined;
         this.lastError = undefined;
@@ -513,7 +574,22 @@ export class EnvertechApp {
     this.failures += 1;
     this.lastError = err;
     this.nextTryAt = mono + wait;
+    // The last values are no longer current (review 1, I2): the inverter is
+    // shown offline (its power stays unknown, never 0 by day).
+    await this.publishOffline(gone);
+    if (gone()) return;
     await this.updateStatus();
+  }
+
+  async publishOffline(gone) {
+    const serial = this.info?.serial;
+    const created = this.createdDevice(serial);
+    if (!created || gone() || !this.running) {
+      return;
+    }
+    await this.publishStates(created, [
+      { device_feature_external_id: ids(this.gladys, serial).feature(FEATURE.ONLINE), state: 0 },
+    ]);
   }
 
   resolveWaiters() {
@@ -591,18 +667,31 @@ export class EnvertechApp {
 
   // --- /data -------------------------------------------------------------------------
 
-  /** Keeps the serial, the inputs, the times and the index guards in /data when they changed. */
-  async saveState() {
+  /**
+   * Keeps the serial, the inputs, the night, the times and the index states
+   * in /data when they changed. One save after the other (review 1, M2): each
+   * reads /data inside the queue. `drop`: an index id whose state is removed
+   * (a device created anew).
+   */
+  saveState({ drop } = {}) {
+    const run = this.saveQueue.then(() => this.doSave(drop));
+    this.saveQueue = run.catch(() => {});
+    return run;
+  }
+
+  async doSave(drop) {
     const indexes = {};
     for (const [id, guard] of this.guards) {
-      indexes[id] = { guard: guard.state() };
+      indexes[id] = { guard: guard.state(), built: this.builts.get(id)?.state() ?? null };
     }
     const kept = keptIndexes(this.store.load().indexes);
     for (const id of Object.keys(indexes)) delete kept[id];
+    if (drop) delete kept[drop];
     const merged = Object.entries({ ...kept, ...indexes }).slice(-MAX_KEPT_INDEXES);
     const state = {
       serial: this.info?.serial ?? null,
       channels: this.info?.channels ?? null,
+      night: Boolean(this.asleep && this.asleepLow),
       lastAttemptAt: this.lastAttemptAt ?? null,
       lastGoodAt: this.lastGoodAt ?? null,
       indexes: Object.fromEntries(merged),
@@ -656,15 +745,10 @@ export class EnvertechApp {
     // for a deleted device of the same id). Its values come with the next frame.
     const id = ids(this.gladys, serial).feature(FEATURE.PRODUCTION_INDEX);
     this.guards.delete(id);
-    const kept = this.store.load();
-    const indexes = keptIndexes(kept.indexes);
-    delete indexes[id];
-    await this.store
-      .save({ ...kept, indexes })
-      .catch((err) =>
-        this.logger.warn(`Clearing the Envertech index state failed (${err?.code ?? 'error'})`),
-      );
+    this.builts.delete(id);
+    // In the queue of the saves (M2): a save running never puts the old state back.
     this.savedKey = undefined;
+    await this.saveState({ drop: id });
     // The inverter now answering has its device: the note about it ends.
     this.otherInverter = undefined;
     await this.updateStatus();
@@ -695,6 +779,36 @@ export class EnvertechApp {
       );
     }
     return this.guards.get(id);
+  }
+
+  /** The index built from the counters (src/built.js) of a created device, from /data. */
+  builtOf(id) {
+    if (!this.builts.has(id)) {
+      const saved = keptIndexes(this.store.load().indexes)[id];
+      this.builts.set(id, new BuiltIndex(saved?.built));
+    }
+    return this.builts.get(id);
+  }
+
+  /**
+   * The night after a low power (review 1, I1): the reference of the guard of
+   * the created device is dated now (its value unchanged), so that the margin
+   * of the first frame of the morning counts from the last attempt of the
+   * night, not from the evening. Nothing is produced meanwhile.
+   */
+  async redateNight() {
+    const created = this.info ? this.createdDevice(this.info.serial) : undefined;
+    if (created) {
+      const guard = this.guardOf(
+        created,
+        ids(this.gladys, this.info.serial).feature(FEATURE.PRODUCTION_INDEX),
+      );
+      const now = this.now();
+      if (guard.last && now > guard.last.at) {
+        guard.last = { value: guard.last.value, at: now };
+      }
+    }
+    await this.saveState();
   }
 
   /** The last frame, published at most once a minute. */
@@ -744,8 +858,26 @@ export class EnvertechApp {
     const channels = channelsOfDevice(this.gladys, reading.serial, created) || inputsOf(reading);
     const id = external.feature(FEATURE.PRODUCTION_INDEX);
     const guard = this.guardOf(created, id);
-    const total = indexOf(reading, channels);
-    const plausible = total !== undefined && guard.accept(total, this.now());
+    const now = this.now();
+    const counters = countersOf(reading, channels);
+    let total;
+    let built;
+    if (counters) {
+      // The index built from the counters (review 1, I4): their sum, chained
+      // over a reset of every counter right after a confirmed night.
+      const afterNight = this.wokeAt !== undefined && now - this.wokeAt < RESET_AFTER_WAKE;
+      const maxKwh = guard.last ? guard.margin(guard.last.at, now) : 0;
+      built = this.builtOf(id).read(counters, now, { afterNight, maxKwh });
+      const value = round(built.value, 3);
+      total = value > 0 ? value : undefined;
+    }
+    const plausible = total !== undefined && guard.accept(total, now);
+    if (plausible) {
+      this.builtOf(id).commit(built.next);
+      if (built.kind) {
+        this.logger.info(`Envertech counters ${built.kind}: the production index goes on`);
+      }
+    }
     this.noIndex = total === undefined;
     if (total !== undefined && !plausible && guard.held) {
       this.logger.warn(

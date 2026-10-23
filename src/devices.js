@@ -286,13 +286,16 @@ export function readingStates(external, reading, index, channels) {
     ...(isNumber(index) && index > 0 ? state(external, FEATURE.PRODUCTION_INDEX, index, 3) : []),
     ...state(external, FEATURE.ONLINE, 1, 0),
   ];
-  const values = reading.channels.slice(0, channels).map(channelValues);
-  const first = (key) => values.find((v) => v[key] !== undefined)?.[key];
+  const blocks = reading.channels.slice(0, channels);
+  const values = blocks.map(channelValues);
+  // An empty block (id all 0, nothing behind it) gives no value of its own.
+  const first = (key) => values.find((v, k) => !blocks[k]?.empty && v[key] !== undefined)?.[key];
   states.push(
     ...state(external, FEATURE.AC_VOLTAGE, first('acVoltage'), 1),
     ...state(external, FEATURE.FREQUENCY, first('frequency'), 2),
   );
   for (const [k, v] of values.entries()) {
+    if (blocks[k]?.empty) continue;
     const n = k + 1;
     states.push(
       ...state(external, FEATURE.power(n), v.power, 1),

@@ -49,6 +49,7 @@ src/app.js                        EnvertechApp: the pace, the link, the night, t
 src/evt800/client.js              the only network access (one TCP link, acknowledgements, bounded)
 src/evt800/protocol.js            frames -> values, acknowledgement, framing (pure)
 src/guard.js                      plausibility of an energy index (gladys-p1-monitor, pure)
+src/built.js                      the index built from the counters, a reset after a night chained (pure)
 src/store.js                      what /data keeps across restarts
 src/devices.js                    the device, feature keys, states (pure)
 src/config.js                     the form, normalized
@@ -65,15 +66,20 @@ test/                             node --test, against the SDK's fake Gladys, sc
 
 - **Energy monitoring**: `production_index` (`energy-production-sensor` /
   `index`, with its `thirty-minutes-production` declared with UUID v5 ids) is
-  the only index: the sum of the lifetime counters of EVERY input of the
-  created device (never a partial sum), through `IndexGuard`
+  the only index: built from the lifetime counters of EVERY input of the
+  created device (never a partial sum) by `src/built.js` (their sum, chained
+  over a reset right after a confirmed night), through `IndexGuard`
   (`src/guard.js`): never 0, a drop and a jump never confirmed by repetition
   nor by time, taken only by the `accept_held_index` action, bounded to the
   value shown. The counters per input are never published on their own (they
   would be counted twice). Never `publishEnergyConsumption`. Do not change
   `src/guard.js` without the same change in gladys-p1-monitor / gladys-omnik
   and a review.
-- **The night is not an error** (see TODO.md "Decisions").
+- **The night is not an error** (see TODO.md "Decisions"). A night after a
+  low power dates the reference of the guard again at every attempt.
+- **One serial per link**, fixed by its first data frame; only data frames of
+  that serial keep the link alive.
+- **/data**: every save through `saveState` (one queue).
 - **The pace**: never two connection attempts less than a minute apart,
   whatever asks; the time of the last attempt is in `/data`, written before
   connecting. A link open is never doubled. Never add a path that skips

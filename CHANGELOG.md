@@ -36,5 +36,12 @@ the notes of the version's GitHub Release.
 - Frames bounded: cut by their length byte, one 1 KiB buffer, linear search,
   90 s of silence, a flood or 2 KiB without a frame closes the link.
 - Guides in English and French, cover image, third-party notices in the image.
+- The night after a low power dates the reference of the index again at every
+  attempt: a wrong first frame in the morning is held.
+- Counters reset when the inverter powers up in the morning (if it does): the
+  index goes on from its value, undone if the old counters come back.
+- Only data frames of the inverter keep the link alive; one serial per
+  connection; the inverter shown offline when the link is lost by day.
+- A device gaining an input never counts the old counter of that input.
 
 [Unreleased]: https://github.com/LM1LC3N7/gladys-envertech/commits/main

@@ -71,8 +71,8 @@ export const T = {
   asleep: (address, notes = []) =>
     withNotes(
       {
-        en: `The Envertech inverter at ${address} does not answer: it is asleep (no sun), it goes on at sunrise. If it is daytime, check its address, its Wi-Fi and its "TCP server" mode.`,
-        fr: `L’onduleur Envertech à l’adresse ${address} ne répond pas : il est en veille (pas de soleil), il reprend au lever du soleil. S’il fait jour, vérifiez son adresse, son Wi-Fi et son mode « serveur TCP ».`,
+        en: `The Envertech inverter at ${address} does not answer: it is asleep (no sun), it goes on at sunrise. If it is daytime, check its address, its Wi-Fi, its "TCP server" mode, and that no other program (Home Assistant...) is connected to it: the inverter may refuse a second client.`,
+        fr: `L’onduleur Envertech à l’adresse ${address} ne répond pas : il est en veille (pas de soleil), il reprend au lever du soleil. S’il fait jour, vérifiez son adresse, son Wi-Fi, son mode « serveur TCP », et qu’aucun autre programme (Home Assistant…) n’y est connecté : l’onduleur peut refuser un second client.`,
       },
       notes,
     ),
@@ -114,14 +114,14 @@ export const T = {
     held: ({ direction, from, to }) => {
       if (direction === 'down') {
         return {
-          en: `The solar production index went back from ${kwh(from)} to ${kwh(to)} kWh: held back, the last accepted value is sent again. If the counter of the inverter was really reset, click "Accept the held index" in the configuration of the integration (nothing is counted for the drop, the index goes on from there). Saving the configuration accepts nothing.`,
-          fr: `L’index de production solaire est revenu de ${kwh(from)} à ${kwh(to)} kWh : retenu, la dernière valeur acceptée est renvoyée. Si le compteur de l’onduleur a vraiment été remis à zéro, cliquez sur « Accepter l’index retenu » dans la configuration de l’intégration (rien n’est compté pour la baisse, l’index repart de là). Enregistrer la configuration n’accepte rien.`,
+          en: `The solar production index went back from ${kwh(from)} to ${kwh(to)} kWh: held back, the last accepted value is sent again. If the counter of the inverter was really reset, click "Accept the held index" in the configuration of the integration (nothing is counted for the drop, the index goes on from there). If such a drop comes back every morning, do not accept it each day: report it (the integration then needs a fix). Saving the configuration accepts nothing.`,
+          fr: `L’index de production solaire est revenu de ${kwh(from)} à ${kwh(to)} kWh : retenu, la dernière valeur acceptée est renvoyée. Si le compteur de l’onduleur a vraiment été remis à zéro, cliquez sur « Accepter l’index retenu » dans la configuration de l’intégration (rien n’est compté pour la baisse, l’index repart de là). Si une telle baisse revient chaque matin, ne l’acceptez pas chaque jour : signalez-la (l’intégration doit alors être corrigée). Enregistrer la configuration n’accepte rien.`,
         };
       }
       const diff = kwh(to - from);
       return {
-        en: `The solar production index jumped from ${kwh(from)} to ${kwh(to)} kWh: held back, not sent to the energy monitoring. If you click "Accept the held index" in the configuration of the integration, ${diff} kWh will be counted at once; accept only if this energy was real. Saving the configuration accepts nothing.`,
-        fr: `L’index de production solaire a sauté de ${kwh(from)} à ${kwh(to)} kWh : retenu, non envoyé au suivi énergétique. Si vous cliquez sur « Accepter l’index retenu » dans la configuration de l’intégration, ${diff} kWh seront comptés d’un coup ; n’acceptez que si cette énergie est réelle. Enregistrer la configuration n’accepte rien.`,
+        en: `The solar production index jumped from ${kwh(from)} to ${kwh(to)} kWh: held back, not sent to the energy monitoring. If you click "Accept the held index" in the configuration of the integration, ${diff} kWh will be counted at once; accept only if this energy was produced since the last value (never an old counter shown again). Saving the configuration accepts nothing.`,
+        fr: `L’index de production solaire a sauté de ${kwh(from)} à ${kwh(to)} kWh : retenu, non envoyé au suivi énergétique. Si vous cliquez sur « Accepter l’index retenu » dans la configuration de l’intégration, ${diff} kWh seront comptés d’un coup ; n’acceptez que si cette énergie a été produite depuis la dernière valeur (jamais un ancien compteur réaffiché). Enregistrer la configuration n’accepte rien.`,
       };
     },
   },

@@ -18,9 +18,9 @@
       we close after 90 s of silence).
 - [ ] Whether the inverter accepts a second client (Home Assistant and Gladys
       at the same time), and whether it closes the link after each frame.
-- [ ] The lifetime counter of each input: kept across the night (the index
-      relies on it), never reset by a reboot? A reset is held as a drop
-      (the button takes it).
+- [ ] The lifetime counter of each input: kept across the night, or reset
+      when the inverter powers up? A reset right after a confirmed night is
+      chained (`src/built.js`); a reset by day is held as a drop.
 - [ ] A one-input model: its frame length (the library reads the second block
       only beyond 71 bytes; an absent block has an id of 0 here).
 - [ ] The acknowledgement of a poll frame echoes bytes 20 to 23 of it, as the
@@ -84,6 +84,38 @@
   whatever the power, is asleep (power 0, online 0, green); red: a link lost
   while producing 20 W or more (retries 1 min doubled to 15 min), a wrong
   answer, a flood, or no frame for more than a day.
+- **Review 1** (fixed):
+  - I1: during a night after a low power, the reference of the guard is
+    dated again at every attempt (`redateNight`, the lot 13 lesson), never
+    after an hour of silence while producing; `src/guard.js` is unchanged
+    (only its public `last.at` is moved). The night is kept in `/data`
+    (`night`).
+  - I2: only a data frame of the link's serial restarts the 90 s silence
+    timer (`keepsAlive`); poll frames or frames of another serial alone end
+    the link; a red failure publishes `online` 0.
+  - I3: one serial per TCP link, fixed by its first data frame
+    (synchronously); another serial on the same link is ignored (logged
+    once). A new link may give another one (a DHCP swap).
+  - I4 (option b): the index is built (`src/built.js`): `base + sum of the
+counters`, `base` 0 while they only rise. Every counter lower, right
+    after a confirmed night (within an hour of the first frame), the new sum
+    within the margin of the guard since the wake-up: a reset, the evening
+    sum added to `base` (as gladys-imeon / gladys-zeversolar chain their
+    counter of the day). Undone if every counter comes back to the evening
+    values within 3 h (net zero: what the glitch added is not counted
+    again). A drop by day is still held; the drop message asks not to
+    accept a drop held every morning but to report it. The state is kept
+    only when the guard takes the value.
+  - M1: the inputs of a frame are its blocks (an id of 0 is an empty block:
+    no values of its own, counter 0); a change of inputs moves `base` so the
+    index never counts the old counter of an input added; the jump message
+    says to accept only energy produced since the last value.
+  - M2: every save of /data goes through one queue (`saveState`), the
+    removal of a created device's state included.
+  - M3: the "another inverter" note changes at most once per link.
+  - M4: the docs no longer promise a frame within a minute.
+  - M5: a second client refused looks like the night: documented, and the
+    "asleep" status mentions it.
 - **No credentials, no cloud, no 429/5xx**: the link has neither; nothing
   secret in the form, the logs, `/data` or the statuses.
 - **States**: `publishChangedStates` with a 10-minute heartbeat: at most 16

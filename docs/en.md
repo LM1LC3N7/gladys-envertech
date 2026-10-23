@@ -39,7 +39,7 @@ published on its own (see "The energy index").
    inverter is powered off with its panels), and save. Add `:port` only if it
    is not 14889.
 3. Open the "Discover" tab and create the device. Its values come with the
-   next frame (within a minute by day).
+   next frame of the inverter.
 4. Optional: enter the peak power of the panels on this inverter (kWp). It
    bounds what the energy index may take between two frames (2 kW when
    empty). Never enter less than the real peak power: in doubt, leave it
@@ -53,7 +53,14 @@ one is due and waits for the first frame.
 
 If another program (Home Assistant, for example) is connected to the
 inverter at the same time, the inverter may refuse the second connection:
-use one of them.
+use one of them. Such a refusal cannot be told from the night: by day, the
+status then says "asleep" (and mentions this case).
+
+The link is kept only by data frames of the inverter it first answered with:
+without one for 90 s, it is closed and tried again at the pace, and the
+inverter is shown offline. Frames of another serial number on the same
+connection are ignored; another inverter at the address (a new connection)
+gets its own device.
 
 ## The night
 
@@ -61,8 +68,9 @@ An EVT800 is powered by its panels: at sunset it stops and goes silent. That
 is not an error: after three failed attempts with a power under 20 W (or an
 hour of silence whatever the power), the inverter is "asleep", its powers go
 to 0, the status stays green and says so, and it is tried every 5 minutes
-until it wakes up. The status turns red if the inverter vanishes while
-producing 20 W or more (new tries after 1 minute, doubled up to 15 minutes),
+until it wakes up. The status turns red (the inverter shown offline) if the
+inverter vanishes while producing 20 W or more (new tries after 1 minute,
+doubled up to 15 minutes),
 if the address does not give EVT800 frames, or if there is no frame for more
 than a day.
 
@@ -77,6 +85,22 @@ click "Accept the held index" in the configuration (a jump is then counted at
 once; nothing is counted for a drop, the index goes on from there). Saving
 the configuration never accepts anything.
 
+During a night that follows a low power, the reference of the guard is dated
+again at every attempt: in the morning, the margin counts from the night, not
+from the evening, so a wrong first frame is held.
+
+It is not known whether the EVT800 keeps its counters when it powers up in
+the morning. If every counter is lower right after such a night, by no more
+than the margin since the wake-up, the integration takes it as a reset: the
+index goes on from its value (the counters of the evening are added to it,
+as the Zeversolar and Imeon integrations chain their counter of the day).
+If the old counters come back within 3 hours, the reset is undone and
+nothing is counted twice. A drop by day is still held. If a drop is held
+every morning anyway, do not accept it each day: please report it.
+
+When the device gains an input (updated in Discovery), the index goes on from
+its value: the old counter of the new input is never counted.
+
 ## Limits
 
 - One micro-inverter per integration; two inputs at most (as the library).
@@ -87,8 +111,9 @@ the configuration never accepts anything.
 ## Privacy
 
 Nothing leaves your network: the integration only talks to the address you
-entered. Only the serial number, the number of inputs, the index guard and
-the times of the last attempt and frame are kept in `/data`.
+entered. Only the serial number, the number of inputs, the night, the index
+state (guard and counters) and the times of the last attempt and frame are
+kept in `/data`.
 
 ## Feedback
 

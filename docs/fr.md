@@ -39,7 +39,7 @@ entrée n’est pas publié seul (voir « L’index d’énergie »).
    l’onduleur s’éteint avec ses panneaux), et enregistrez. Ajoutez `:port`
    seulement s’il n’est pas 14889.
 3. Ouvrez l’onglet « Découverte » et créez l’appareil. Ses valeurs arrivent
-   avec la trame suivante (en moins d’une minute de jour).
+   avec la trame suivante de l’onduleur.
 4. Facultatif : saisissez la puissance crête des panneaux de cet onduleur
    (kWc). Elle borne ce que l’index d’énergie peut prendre entre deux trames
    (2 kW si vide). Ne saisissez jamais moins que la vraie puissance crête :
@@ -53,7 +53,14 @@ l’essai de connexion quand il est dû et attend la première trame.
 
 Si un autre programme (Home Assistant par exemple) est connecté à l’onduleur
 en même temps, l’onduleur peut refuser la seconde connexion : utilisez l’un
-des deux.
+des deux. Ce refus ne se distingue pas de la nuit : de jour, l’état dit alors
+« en veille » (et cite ce cas).
+
+Le lien n’est gardé que par les trames de données de l’onduleur qui a répondu
+le premier : sans aucune pendant 90 s, il est fermé et réessayé au rythme
+habituel, et l’onduleur est affiché hors ligne. Les trames d’un autre numéro
+de série sur la même connexion sont ignorées ; un autre onduleur à l’adresse
+(une nouvelle connexion) a son propre appareil.
 
 ## La nuit
 
@@ -62,7 +69,7 @@ se tait. Ce n’est pas une erreur : après trois essais ratés avec une puissan
 sous 20 W (ou une heure de silence quelle que soit la puissance), l’onduleur
 est « en veille », ses puissances passent à 0, l’état reste vert et le dit, et
 il est réessayé toutes les 5 minutes jusqu’à son réveil. L’état passe au
-rouge si l’onduleur disparaît en produisant 20 W ou plus (nouveaux essais
+rouge (l’onduleur affiché hors ligne) si l’onduleur disparaît en produisant 20 W ou plus (nouveaux essais
 après 1 minute, doublés jusqu’à 15 minutes), si l’adresse ne donne pas de
 trames d’EVT800, ou s’il n’y a aucune trame depuis plus d’un jour.
 
@@ -78,6 +85,23 @@ cliquez sur « Accepter l’index retenu » dans la configuration (un saut est
 alors compté d’un coup ; rien n’est compté pour une baisse, l’index repart de
 là). Enregistrer la configuration n’accepte jamais rien.
 
+Pendant une nuit qui suit une puissance faible, la référence de la garde est
+redatée à chaque essai : le matin, la marge compte depuis la nuit, pas depuis
+le soir, et une première trame fausse est retenue.
+
+On ne sait pas si l’EVT800 garde ses compteurs quand il redémarre le matin.
+Si tous les compteurs sont plus bas juste après une telle nuit, de pas plus
+que la marge depuis le réveil, l’intégration y voit une remise à zéro :
+l’index repart de sa valeur (les compteurs du soir lui sont ajoutés, comme les
+intégrations Zeversolar et Imeon enchaînent leur compteur du jour). Si les
+anciens compteurs reviennent dans les 3 heures, la remise à zéro est annulée
+et rien n’est compté deux fois. Une baisse de jour reste retenue. Si une
+baisse est quand même retenue chaque matin, ne l’acceptez pas chaque jour :
+signalez-la.
+
+Quand l’appareil gagne une entrée (mis à jour dans Découverte), l’index repart
+de sa valeur : l’ancien compteur de la nouvelle entrée n’est jamais compté.
+
 ## Limites
 
 - Un micro-onduleur par intégration ; deux entrées au plus (comme la
@@ -89,8 +113,9 @@ là). Enregistrer la configuration n’accepte jamais rien.
 ## Vie privée
 
 Rien ne sort de votre réseau : l’intégration ne parle qu’à l’adresse saisie.
-Seuls le numéro de série, le nombre d’entrées, la garde de l’index et les
-heures du dernier essai et de la dernière trame sont gardés dans `/data`.
+Seuls le numéro de série, le nombre d’entrées, la nuit, l’état de l’index
+(garde et compteurs) et les heures du dernier essai et de la dernière trame
+sont gardés dans `/data`.
 
 ## Retours
 

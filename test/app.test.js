@@ -159,7 +159,7 @@ test('index: a jump is held, shown, and taken only by the button; never 0, never
   await s.wait(MINUTE);
   await s.send(frame(0, 0));
   await s.wait(MINUTE);
-  await s.send(dataFrame({ inputs: [{ energy: 300 }] }));
+  await s.send(dataFrame({ inputs: [{ energy: 300 }, { raw: { energy: 0xffffffff } }] }));
   assert.deepEqual(statesOf(s.gladys, F('production_index')), [200, 250.01]);
   assert.match(message(s.gladys), /lifetime counter of every input/);
 });
@@ -172,9 +172,19 @@ test('a frame without serial is ignored; another serial goes to its own device o
   assert.equal(s.gladys.fake.states.length, 0);
   assert.equal(s.store.data.serial ?? null, null);
   await s.send(frame());
-  const before = s.gladys.fake.states.length;
+  let before = s.gladys.fake.states.length;
   await s.wait(MINUTE);
-  // A DHCP swap: another inverter at the address.
+  // Another serial on the SAME link: ignored (review 1, I3).
+  await s.send(dataFrame({ serial: '31529999', inputs: [{ energy: 5 }, { energy: 5 }] }));
+  assert.equal(s.gladys.fake.discoveredDevices.at(-1).external_id, DEVICE());
+  assert.equal(s.gladys.fake.states.length, before);
+  // A DHCP swap: another inverter at the address, on a new link (the old
+  // device is shown offline when the link is lost, nothing else).
+  await s.fail('closed');
+  assert.equal(s.gladys.fake.lastState(F('online')), 0);
+  await s.wait(MINUTE);
+  s.links.last().connect();
+  before = s.gladys.fake.states.length;
   await s.send(dataFrame({ serial: '31529999', inputs: [{ energy: 5 }, { energy: 5 }] }));
   await s.wait(MINUTE);
   const after = s.gladys.fake.states.slice(before);
@@ -300,6 +310,7 @@ test('/data holds no text of the inverter, only what is listed', async () => {
     'indexes',
     'lastAttemptAt',
     'lastGoodAt',
+    'night',
     'serial',
   ]);
   const t = await setup({

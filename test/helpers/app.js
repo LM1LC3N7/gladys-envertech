@@ -55,7 +55,10 @@ export function createLinks() {
       /** The inverter sends a frame (a Buffer). */
       frame(buffer) {
         if (link.closed || link.ended) return undefined;
-        return options.onFrame(parseFrame(buffer));
+        const parsed = parseFrame(buffer);
+        // As Evt800Link: the app's keepsAlive sees the frame first (it fixes the serial of the link).
+        link.alive = (link.alive ?? 0) + (options.keepsAlive?.(parsed) ? 1 : 0);
+        return options.onFrame(parsed);
       },
       /** The link ends with an error code, or without (closed by the inverter after frames). */
       end(code) {

@@ -38,7 +38,12 @@ test('an unreadable serial, an absent input, a raw 0xFFFF', () => {
   assert.equal(serialOf(zero), undefined);
   assert.equal(serialOf(dataFrame({ serial: 'FFFFFFFF' })), undefined);
   const one = parseFrame(dataFrame({ inputs: [{ power: 100 }] }));
-  assert.equal(one.channels[1], null, 'the second block has no id: no input');
+  // The second block has no id: kept (2 blocks, 2 inputs, review 1 M1), marked empty.
+  assert.equal(one.channels.length, 2);
+  assert.equal(one.channels[1].empty, true);
+  assert.equal(one.channels[1].id, null);
+  assert.equal(one.channels[1].energy, 0);
+  assert.equal(one.channels[0].empty, false);
   close(one.channels[0].power, 100, 'power');
   const glitch = parseFrame(
     dataFrame({ inputs: [{ raw: { power: 0xffff, energy: 0xffffffff } }] }),

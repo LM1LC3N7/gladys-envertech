@@ -61,13 +61,15 @@ export function serialOf(frame) {
   return serial === '00000000' || serial === 'FFFFFFFF' ? undefined : serial;
 }
 
-/** One input of a data frame (`k` from 0), or null when absent (id all 0). */
+/**
+ * One input of a data frame (`k` from 0). A block whose id is all 0 is kept
+ * (`id` null, `empty` true): the library reads its values the same way, and
+ * the number of inputs of a frame is its number of blocks (review 1, M1).
+ */
 function channelOf(frame, k) {
   const at = BLOCK_START + k * BLOCK_SIZE;
-  const id = hex(frame, at, 4);
-  if (id === '00000000') {
-    return null;
-  }
+  const hexId = hex(frame, at, 4);
+  const empty = hexId === '00000000';
   const dcVoltage = scaled16(frame, at + 6, 64);
   const power = scaled16(frame, at + 8, 512);
   const rawEnergy = u32(frame, at + 10);
@@ -78,7 +80,8 @@ function channelOf(frame, k) {
     current = dcVoltage > 0 ? power / dcVoltage : power === 0 ? 0 : undefined;
   }
   return {
-    id,
+    id: empty ? null : hexId,
+    empty,
     firmware: `${hex(frame, at + 4, 1)}.${hex(frame, at + 5, 1)}`,
     dcVoltage,
     power,
@@ -92,7 +95,7 @@ function channelOf(frame, k) {
 
 /**
  * What a whole frame says: `{ kind: 'poll', serial }`, `{ kind: 'data',
- * serial, channels: [channel | null] }` or `{ kind: 'other', serial }`.
+ * serial, channels: [channel] }` or `{ kind: 'other', serial }`.
  * `serial` is undefined when unreadable.
  */
 export function parseFrame(frame) {
