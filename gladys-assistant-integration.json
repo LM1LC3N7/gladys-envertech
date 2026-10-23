@@ -6,8 +6,8 @@
     "en": "Unofficial: Envertech EVT800 micro-inverters on your network: power, inputs, energy index.",
     "fr": "Non officiel : micro-onduleurs Envertech EVT800 en local : puissance, entrées, index d'énergie."
   },
-  "version": "0.1.1",
-  "docker_image": "ghcr.io/lm1lc3n7/gladys-envertech:0.1.1",
+  "version": "0.1.2",
+  "docker_image": "ghcr.io/lm1lc3n7/gladys-envertech:0.1.2",
   "gladys_version": ">=5.2.0",
   "cover_image": "https://raw.githubusercontent.com/LM1LC3N7/gladys-envertech/main/cover.png",
   "categories": ["energy"],

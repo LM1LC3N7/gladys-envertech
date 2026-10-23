@@ -1,6 +1,6 @@
 {
   "name": "gladys-envertech",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Envertech EVT800 micro-inverters for Gladys Assistant: power, inputs, temperature and a guarded production index read from the local TCP link of the inverter. Read-only.",
   "type": "module",
