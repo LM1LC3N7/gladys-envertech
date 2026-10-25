@@ -328,9 +328,8 @@ export class EnvertechApp {
 
   // --- Pace ------------------------------------------------------------------
 
-  /** The monotonic time from which the next connection attempt may start. */
-  dueAt() {
-    const mono = this.monotonic();
+  /** The monotonic time from which the next connection attempt may start, from the caller's instant `mono` (the clock is read once per decision). */
+  dueAt(mono) {
     let due =
       this.lastConnectAt === undefined
         ? mono
@@ -350,7 +349,8 @@ export class EnvertechApp {
     if (!this.running || !this.config.address || this.session?.link) {
       return;
     }
-    const wait = Math.max(0, this.dueAt() - this.monotonic());
+    const mono = this.monotonic();
+    const wait = Math.max(0, this.dueAt(mono) - mono);
     this.timer = this.timers.setTimeout(() => {
       this.timer = undefined;
       this.connecting = this.connectNow();
@@ -364,7 +364,7 @@ export class EnvertechApp {
       return;
     }
     const mono = this.monotonic();
-    if (mono < this.dueAt()) {
+    if (mono < this.dueAt(mono)) {
       this.schedule();
       return;
     }
@@ -975,7 +975,8 @@ export class EnvertechApp {
     if (link) {
       return this.latest ? this.describeOutcome() : T.test.waiting;
     }
-    if (this.dueAt() > this.monotonic() || !this.running) {
+    const mono = this.monotonic();
+    if (this.dueAt(mono) > mono || !this.running) {
       return this.describeOutcome();
     }
     let timer;
@@ -1004,7 +1005,7 @@ export class EnvertechApp {
   /** The last outcome in words, and the time to the next attempt. */
   describeOutcome() {
     const mono = this.monotonic();
-    const next = Math.max(0, this.dueAt() - mono);
+    const next = Math.max(0, this.dueAt(mono) - mono);
     const outcome = this.outcome;
     if (!outcome) {
       return T.test.notYet(next);

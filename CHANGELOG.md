@@ -10,6 +10,10 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+### Fixed
+
+- Reads never started with a real clock on a fresh install
+
 ## [0.1.2] - 2026-10-23
 
 ### Fixed

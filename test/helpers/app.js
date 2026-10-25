@@ -83,13 +83,16 @@ export async function setup({
   const gladys = createFakeGladys({ selector: SELECTOR, config, devices });
   await gladys.connect();
   const { clock, timers, advance } = createFakeClock(now);
+  let drift = 0;
   const lines = [];
   const log = (...args) => lines.push(args.map(String).join(' '));
   const app = new EnvertechApp({
     gladys,
     logger: { lines, info: log, warn: log, error: log, debug: log },
     now: () => clock.now,
-    monotonic: () => clock.now,
+    // A real monotonic clock moves between two reads of it: 1 µs per call
+    // here, so that a decision reading the clock twice is caught.
+    monotonic: () => clock.now + (drift += 0.001),
     timers,
     store,
     linkFactory: links.factory,
