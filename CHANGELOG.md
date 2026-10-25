@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-25
+
 ### Fixed
 
 - Reads never started with a real clock on a fresh install
@@ -61,6 +63,7 @@ the notes of the version's GitHub Release.
   connection; the inverter shown offline when the link is lost by day.
 - A device gaining an input never counts the old counter of that input.
 
-[Unreleased]: https://github.com/LM1LC3N7/gladys-envertech/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/LM1LC3N7/gladys-envertech/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/LM1LC3N7/gladys-envertech/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/LM1LC3N7/gladys-envertech/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/LM1LC3N7/gladys-envertech/releases/tag/v0.1.1
